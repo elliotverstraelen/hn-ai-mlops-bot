@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRun, getArticles } from "@/lib/db";
 import { notFound } from "next/navigation";
+import TweetCarousel from "./TweetCarousel";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,6 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
   if (!run) notFound();
 
-  const carouselItems = articles.slice(0, 3);
-
   return (
     <div className="space-y-6">
       <div>
@@ -74,7 +73,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Articles fetched", value: run.articles_fetched },
-          { label: "Tweets posted", value: run.tweets_posted },
+          { label: "Tweets generated", value: run.articles_fetched },
           { label: "Avg inference", value: run.avg_inference_seconds > 0 ? `${run.avg_inference_seconds.toFixed(2)}s` : "N/A" },
           { label: "Total inference", value: run.total_inference_seconds > 0 ? `${run.total_inference_seconds.toFixed(2)}s` : "N/A" },
         ].map((s) => (
@@ -91,57 +90,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       </div>
 
       {/* Tweet carousel */}
-      {carouselItems.length > 0 && (
-        <div>
-          <h3 className="text-base font-semibold mb-3">Generated tweets</h3>
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
-            {carouselItems.map((article) => {
-              const posted = !!article.tweet_id;
-              const inner = (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium ${posted ? "text-sky-400" : "text-gray-500"}`}>
-                      @ElliotVerstrae1
-                    </span>
-                    <svg className={`w-3.5 h-3.5 ml-auto ${posted ? "text-sky-400" : "text-gray-600"}`} viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.261 5.632 5.903-5.632zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
-                  </div>
-                  <p className={`text-sm leading-relaxed line-clamp-4 ${posted ? "text-gray-200" : "text-gray-400"}`}>
-                    {article.summary}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate mt-auto">{article.title}</p>
-                  {posted ? (
-                    <span className="text-xs text-sky-400 group-hover:text-sky-300">View on X →</span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full w-fit">
-                      Not posted
-                    </span>
-                  )}
-                </>
-              );
-              return posted ? (
-                <a
-                  key={article.id}
-                  href={`https://twitter.com/i/web/status/${article.tweet_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="snap-start shrink-0 w-72 bg-gray-900 border border-gray-800 hover:border-sky-500/50 rounded-xl p-4 flex flex-col gap-2 transition-colors group"
-                >
-                  {inner}
-                </a>
-              ) : (
-                <div
-                  key={article.id}
-                  className="snap-start shrink-0 w-72 bg-gray-900 border border-gray-800 border-dashed rounded-xl p-4 flex flex-col gap-2"
-                >
-                  {inner}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {articles.length > 0 && <TweetCarousel articles={articles} />}
 
       {/* Articles */}
       <div>
@@ -176,7 +125,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                     View tweet →
                   </a>
                 ) : (
-                  <span className="shrink-0 bg-gray-700/50 border border-gray-700 text-gray-500 text-xs px-3 py-1 rounded-full">
+                  <span className="shrink-0 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1 rounded-full">
                     Not posted
                   </span>
                 )}

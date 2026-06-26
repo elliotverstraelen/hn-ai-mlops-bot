@@ -43,6 +43,11 @@ def init_db():
                     tweet_id TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
+                CREATE TABLE IF NOT EXISTS trigger_requests (
+                    id SERIAL PRIMARY KEY,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    processed BOOLEAN DEFAULT FALSE
+                );
             """)
 
 
@@ -159,7 +164,11 @@ def run():
             tweet_text = format_tweet(summary, article["url"])
             logger.info(f"Posting tweet ({len(tweet_text)} chars): {tweet_text[:60]}...")
 
-            response = twitter.create_tweet(text=tweet_text)
+            try:
+                response = twitter.create_tweet(text=tweet_text)
+            except tweepy.errors.Forbidden as e:
+                logger.warning(f"Skipping tweet (forbidden — likely duplicate): {e}")
+                continue
             tweet_id = str(response.data["id"])
             tweet_ids.append(tweet_id)
             logger.info(f"Posted tweet {tweet_id}")
@@ -193,14 +202,38 @@ def run():
         logger.info(f"Done. Posted {len(tweet_ids)} tweets.")
 
 
+def consume_trigger(db_enabled: bool) -> bool:
+    if not db_enabled:
+        return False
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE trigger_requests SET processed=TRUE WHERE id = "
+                    "(SELECT id FROM trigger_requests WHERE processed=FALSE ORDER BY created_at LIMIT 1) "
+                    "RETURNING id"
+                )
+                return cur.fetchone() is not None
+    except Exception:
+        return False
+
+
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
     interval = int(os.environ.get("RUN_INTERVAL_SECONDS", "21600"))
+    db_enabled = "DATABASE_URL" in os.environ
     while True:
         try:
             run()
         except Exception as e:
             logger.error(f"Run failed: {e}")
         logger.info(f"Sleeping {interval}s until next run...")
-        time.sleep(interval)
+        elapsed = 0
+        poll = 30
+        while elapsed < interval:
+            time.sleep(poll)
+            elapsed += poll
+            if consume_trigger(db_enabled):
+                logger.info("Manual trigger received — running pipeline now.")
+                break

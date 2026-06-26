@@ -160,20 +160,19 @@ def run(existing_run_id=None):
 
         logger.info("Fetching HN articles...")
         skip_urls = get_recently_tweeted_urls(db_enabled)
-        articles = fetch_hn_articles(MAX_ARTICLES * 4, skip_urls)
-        mlflow.log_metric("articles_fetched", len(articles))
+        articles = fetch_hn_articles(MAX_ARTICLES, skip_urls)
 
         tweet_ids = []
         total_inference_time = 0.0
+        articles_processed = 0
 
         for article in articles:
-            if len(tweet_ids) >= MAX_ARTICLES:
-                break
             logger.info(f"Summarizing: {article['title']}")
             t0 = time.time()
             summary = summarize(article["title"])
             elapsed = time.time() - t0
             total_inference_time += elapsed
+            articles_processed += 1
 
             tweet_text = format_tweet(summary, article["url"])
             logger.info(f"Posting tweet ({len(tweet_text)} chars): {tweet_text[:60]}...")
@@ -195,10 +194,11 @@ def run(existing_run_id=None):
                                VALUES (%s, %s, %s, %s, %s)""",
                             (db_run_id, article["title"], article["url"], summary, tweet_id)
                         )
+                        cur.execute(
+                            """UPDATE runs SET articles_fetched=%s, tweets_posted=%s WHERE id=%s""",
+                            (articles_processed, len(tweet_ids), db_run_id)
+                        )
 
-            time.sleep(2)
-
-        articles_processed = min(len(articles), MAX_ARTICLES)
         avg_inference = total_inference_time / max(articles_processed, 1)
         mlflow.log_metric("articles_fetched", articles_processed)
         mlflow.log_metric("tweets_posted", len(tweet_ids))

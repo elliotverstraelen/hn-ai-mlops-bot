@@ -108,14 +108,12 @@ export default async function HomePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {run.status !== "running" && (
-                        <Link
-                          href={`/runs/${run.id}`}
-                          className="text-blue-400 hover:text-blue-300 text-xs"
-                        >
-                          View →
-                        </Link>
-                      )}
+                      <Link
+                        href={`/runs/${run.id}`}
+                        className="text-blue-400 hover:text-blue-300 text-xs"
+                      >
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 ))}

@@ -36,6 +36,8 @@ def init_db():
                     total_inference_seconds FLOAT DEFAULT 0
                 );
                 ALTER TABLE runs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'running';
+                UPDATE runs SET status = 'done'
+                  WHERE status = 'running' AND started_at < NOW() - INTERVAL '30 minutes';
                 CREATE TABLE IF NOT EXISTS articles (
                     id SERIAL PRIMARY KEY,
                     run_id INT REFERENCES runs(id) ON DELETE CASCADE,

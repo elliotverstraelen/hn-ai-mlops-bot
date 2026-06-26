@@ -24,9 +24,15 @@ export interface Article {
 }
 
 function normalizeRun(row: Run): Run {
+  let status = row.status ?? "done";
+  // Treat runs stuck in 'running' for >30 min as 'done'
+  if (status === "running") {
+    const age = Date.now() - new Date(row.started_at).getTime();
+    if (age > 30 * 60 * 1000) status = "done";
+  }
   return {
     ...row,
-    status: row.status ?? "done",
+    status,
     avg_inference_seconds: row.avg_inference_seconds ?? 0,
     total_inference_seconds: row.total_inference_seconds ?? 0,
     articles_fetched: row.articles_fetched ?? 0,

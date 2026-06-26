@@ -1,0 +1,5 @@
+tweepy==4.14.0
+mlflow==2.13.2
+requests==2.32.3
+python-dotenv==1.0.1
+urllib3<2

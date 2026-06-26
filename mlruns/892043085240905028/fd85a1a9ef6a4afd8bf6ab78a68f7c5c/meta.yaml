@@ -1,0 +1,14 @@
+artifact_uri: /Users/elliot/Documents/ehb/Machine Learining /mlruns/892043085240905028/fd85a1a9ef6a4afd8bf6ab78a68f7c5c/artifacts
+end_time: 1782492872820
+entry_point_name: ''
+experiment_id: '892043085240905028'
+lifecycle_stage: active
+run_id: fd85a1a9ef6a4afd8bf6ab78a68f7c5c
+run_name: rebellious-horse-312
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1782492844717
+status: 3
+tags: []
+user_id: elliot

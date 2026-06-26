@@ -1,0 +1,14 @@
+artifact_uri: /Users/elliot/Documents/ehb/Machine Learining /mlruns/892043085240905028/4a1a91f7b4cf45419f996e28c755f861/artifacts
+end_time: 1782492618222
+entry_point_name: ''
+experiment_id: '892043085240905028'
+lifecycle_stage: active
+run_id: 4a1a91f7b4cf45419f996e28c755f861
+run_name: nosy-crow-651
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1782492615898
+status: 4
+tags: []
+user_id: elliot

@@ -109,4 +109,11 @@ def run():
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-    run()
+    interval = int(os.environ.get("RUN_INTERVAL_SECONDS", "21600"))  # 6 hours default
+    while True:
+        try:
+            run()
+        except Exception as e:
+            logger.error(f"Run failed: {e}")
+        logger.info(f"Sleeping {interval}s until next run...")
+        time.sleep(interval)

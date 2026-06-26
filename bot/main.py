@@ -71,14 +71,14 @@ def get_recently_tweeted_urls(db_enabled: bool) -> set:
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT source_url FROM articles WHERE created_at > NOW() - INTERVAL '12 hours'"
+                "SELECT source_url FROM articles WHERE tweet_id IS NOT NULL AND created_at > NOW() - INTERVAL '24 hours'"
             )
             return {row[0] for row in cur.fetchall()}
 
 
 def fetch_hn_articles(n: int = MAX_ARTICLES, skip_urls: set = None) -> list[dict]:
     skip_urls = skip_urls or set()
-    ids = requests.get(HN_TOP_STORIES, timeout=10).json()[:n * 5]
+    ids = requests.get(HN_TOP_STORIES, timeout=10).json()[:100]
     articles = []
     for story_id in ids:
         item = requests.get(HN_ITEM.format(story_id), timeout=10).json()
@@ -196,6 +196,14 @@ def run(existing_run_id=None):
         logger.info("Fetching HN articles...")
         skip_urls = get_recently_tweeted_urls(db_enabled)
         articles = fetch_hn_articles(MAX_ARTICLES, skip_urls)
+
+        if not articles:
+            logger.warning("No new articles found (all recent HN top stories already processed).")
+            if db_enabled and db_run_id:
+                with get_db() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("UPDATE runs SET status='failed' WHERE id=%s", (db_run_id,))
+            return
 
         tweet_ids = []
         total_inference_time = 0.0

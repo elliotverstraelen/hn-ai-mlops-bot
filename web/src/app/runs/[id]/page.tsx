@@ -75,8 +75,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
         {[
           { label: "Articles fetched", value: run.articles_fetched },
           { label: "Tweets posted", value: run.tweets_posted },
-          { label: "Avg inference", value: `${run.avg_inference_seconds.toFixed(2)}s` },
-          { label: "Total inference", value: `${run.total_inference_seconds.toFixed(2)}s` },
+          { label: "Avg inference", value: run.avg_inference_seconds > 0 ? `${run.avg_inference_seconds.toFixed(2)}s` : "N/A" },
+          { label: "Total inference", value: run.total_inference_seconds > 0 ? `${run.total_inference_seconds.toFixed(2)}s` : "N/A" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider">{s.label}</p>
@@ -180,12 +180,22 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                     Not posted
                   </span>
                 )}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
-                  BART Summary (output)
+                  GPT-4o-mini output
                 </p>
                 <p className="text-gray-300 text-sm leading-relaxed">{article.summary}</p>
+                {article.quality_score != null && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs text-gray-500">Quality score:</span>
+                    <span className={`text-xs font-semibold ${
+                      article.quality_score >= 7 ? "text-green-400" :
+                      article.quality_score >= 5 ? "text-yellow-400" : "text-red-400"
+                    }`}>{article.quality_score}/10</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}

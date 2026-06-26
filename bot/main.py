@@ -5,6 +5,7 @@ import requests
 import tweepy
 import mlflow
 import psycopg2
+from openai import OpenAI
 from psycopg2.extras import RealDictCursor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -12,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 HN_TOP_STORIES = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{}.json"
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-large-cnn"
 MAX_ARTICLES = 5
 TWEET_MAX_CHARS = 280
 
@@ -82,27 +82,24 @@ def fetch_hn_articles(n: int = MAX_ARTICLES, skip_urls: set = None) -> list[dict
 
 
 def summarize(title: str) -> str:
-    headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
-    payload = {
-        "inputs": title,
-        "parameters": {"max_length": 60, "min_length": 15, "do_sample": False},
-    }
-    for attempt in range(3):
-        try:
-            response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=90)
-        except requests.exceptions.Timeout:
-            wait = 20 * (attempt + 1)
-            logger.warning(f"HuggingFace request timed out (attempt {attempt + 1}/3), retrying in {wait}s...")
-            time.sleep(wait)
-            continue
-        if response.status_code == 503:
-            wait = response.json().get("estimated_time", 20)
-            logger.info(f"Model loading on HuggingFace, waiting {wait:.0f}s...")
-            time.sleep(min(wait, 60))
-            continue
-        response.raise_for_status()
-        return response.json()[0]["summary_text"]
-    raise RuntimeError("HuggingFace API unavailable after retries")
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You write punchy, engaging tweets about tech news for a developer audience. "
+                    "Given an article title, write a single tweet (no hashtags, no URL — that's added separately). "
+                    "Max 200 characters. Be direct and interesting, not clickbait."
+                ),
+            },
+            {"role": "user", "content": title},
+        ],
+        max_tokens=80,
+        temperature=0.7,
+    )
+    return completion.choices[0].message.content.strip()
 
 
 def format_tweet(summary: str, url: str) -> str:
@@ -136,8 +133,8 @@ def run():
 
     with mlflow.start_run() as mlflow_run:
         mlflow_run_id = mlflow_run.info.run_id
-        mlflow.log_param("model", "facebook/bart-large-cnn")
-        mlflow.log_param("inference", "huggingface-api")
+        mlflow.log_param("model", "gpt-4o-mini")
+        mlflow.log_param("inference", "openai-api")
         mlflow.log_param("max_articles", MAX_ARTICLES)
 
         db_run_id = None

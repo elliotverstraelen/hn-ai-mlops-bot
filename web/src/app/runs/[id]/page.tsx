@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getRun, getArticles } from "@/lib/db";
 import { notFound } from "next/navigation";
 import TweetCarousel from "./TweetCarousel";
+import PostButton from "./PostButton";
 
 export const dynamic = "force-dynamic";
 
@@ -72,10 +73,10 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Articles fetched", value: run.articles_fetched },
-          { label: "Tweets generated", value: run.articles_fetched },
+          { label: "Generated", value: run.articles_fetched },
           { label: "Avg inference", value: run.avg_inference_seconds > 0 ? `${run.avg_inference_seconds.toFixed(2)}s` : "N/A" },
-          { label: "Total inference", value: run.total_inference_seconds > 0 ? `${run.total_inference_seconds.toFixed(2)}s` : "N/A" },
+          { label: "Run cost", value: run.total_cost_usd && run.total_cost_usd > 0 ? `$${run.total_cost_usd.toFixed(4)}` : "N/A" },
+          { label: "Avg quality", value: run.avg_quality_score && run.avg_quality_score > 0 ? `${run.avg_quality_score.toFixed(1)}/10` : "N/A" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider">{s.label}</p>
@@ -125,9 +126,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                     View tweet →
                   </a>
                 ) : (
-                  <span className="shrink-0 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs px-3 py-1 rounded-full">
-                    Not posted
-                  </span>
+                  <PostButton articleId={article.id} />
                 )}
                 </div>
               </div>

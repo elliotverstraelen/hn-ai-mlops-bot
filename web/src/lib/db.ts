@@ -69,18 +69,35 @@ export async function getArticles(runId: number): Promise<Article[]> {
   return rows;
 }
 
+export async function getArticle(id: number): Promise<Article | null> {
+  const { rows } = await pool.query<Article>("SELECT * FROM articles WHERE id = $1", [id]);
+  return rows[0] ?? null;
+}
+
+export async function setArticleTweetId(articleId: number, tweetId: string): Promise<void> {
+  await pool.query("UPDATE articles SET tweet_id = $1 WHERE id = $2", [tweetId, articleId]);
+  await pool.query(
+    "UPDATE runs SET tweets_posted = tweets_posted + 1 WHERE id = (SELECT run_id FROM articles WHERE id = $1)",
+    [articleId]
+  );
+}
+
 export async function getStats(): Promise<{
   totalRuns: number;
   totalTweets: number;
   totalArticles: number;
   avgInference: number;
+  totalCostUsd: number;
+  avgQualityScore: number;
 }> {
   const { rows } = await pool.query(`
     SELECT
       COUNT(*)::int AS "totalRuns",
       COALESCE(SUM(tweets_posted), 0)::int AS "totalTweets",
       COALESCE(SUM(articles_fetched), 0)::int AS "totalArticles",
-      COALESCE(AVG(avg_inference_seconds), 0)::float AS "avgInference"
+      COALESCE(AVG(NULLIF(avg_inference_seconds, 0)), 0)::float AS "avgInference",
+      COALESCE(SUM(total_cost_usd), 0)::float AS "totalCostUsd",
+      COALESCE(AVG(NULLIF(avg_quality_score, 0)), 0)::float AS "avgQualityScore"
     FROM runs
   `);
   return rows[0];

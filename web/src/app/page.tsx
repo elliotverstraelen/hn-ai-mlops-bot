@@ -66,12 +66,13 @@ export default async function HomePage() {
       <AutoRefresh hasRunning={hasRunning} />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { label: "Total Runs", value: stats.totalRuns },
-          { label: "Tweets Posted", value: stats.totalTweets },
-          { label: "Articles Processed", value: stats.totalArticles },
+          { label: "Tweets Generated", value: stats.totalArticles },
           { label: "Avg Inference", value: stats.avgInference > 0 ? `${fmt(stats.avgInference)}s` : "N/A" },
+          { label: "Total Spend", value: stats.totalCostUsd > 0 ? `$${stats.totalCostUsd.toFixed(4)}` : "$0.00" },
+          { label: "Avg Quality", value: stats.avgQualityScore > 0 ? `${fmt(stats.avgQualityScore, 1)}/10` : "N/A" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider">{s.label}</p>
@@ -97,9 +98,9 @@ export default async function HomePage() {
                 <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase">
                   <th className="text-left px-4 py-3">Time</th>
                   <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-left px-4 py-3">Articles</th>
-                  <th className="text-left px-4 py-3">Tweets</th>
+                  <th className="text-left px-4 py-3">Generated</th>
                   <th className="text-left px-4 py-3">Avg inference</th>
+                  <th className="text-left px-4 py-3">Cost</th>
                   <th className="text-left px-4 py-3">MLflow run</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -115,8 +116,8 @@ export default async function HomePage() {
                     <td className="px-4 py-3 text-gray-300">{timeAgo(run.started_at)}</td>
                     <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
                     <td className="px-4 py-3">{run.articles_fetched}</td>
-                    <td className="px-4 py-3">{run.tweets_posted}</td>
                     <td className="px-4 py-3 text-gray-300">{run.avg_inference_seconds > 0 ? `${fmt(run.avg_inference_seconds)}s` : "N/A"}</td>
+                    <td className="px-4 py-3 text-gray-300">{run.total_cost_usd && run.total_cost_usd > 0 ? `$${run.total_cost_usd.toFixed(4)}` : "—"}</td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs text-gray-500">
                         {run.mlflow_run_id?.slice(0, 8)}…

@@ -114,7 +114,16 @@ export default async function HomePage() {
                     }`}
                   >
                     <td className="px-4 py-3 text-gray-300">{timeAgo(run.started_at)}</td>
-                    <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <StatusBadge status={run.status} />
+                        {run.avg_quality_score != null && run.avg_quality_score > 0 && run.avg_quality_score < 5 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                            Low quality
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">{run.articles_fetched}</td>
                     <td className="px-4 py-3 text-gray-300">{run.avg_inference_seconds > 0 ? `${fmt(run.avg_inference_seconds)}s` : "N/A"}</td>
                     <td className="px-4 py-3 text-gray-300">{run.total_cost_usd && run.total_cost_usd > 0 ? `$${run.total_cost_usd.toFixed(4)}` : "—"}</td>

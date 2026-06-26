@@ -266,24 +266,22 @@ def run(existing_run_id=None):
         mlflow.log_metric("avg_quality_score", round(avg_quality, 2))
         logger.info(f"Cost: ${total_cost_usd:.4f} | Avg quality: {avg_quality:.1f}/10")
 
-        final_status = "done"
         if avg_quality < 5 and len(quality_scores) > 0:
-            logger.warning(f"Quality gate failed: avg_quality_score={avg_quality:.1f} < 5.0 — marking run as failed")
-            final_status = "failed"
+            logger.warning(f"Quality gate: avg_quality_score={avg_quality:.1f} < 5.0")
 
         if db_enabled and db_run_id:
             with get_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        f"""UPDATE runs SET articles_fetched=%s, tweets_posted=%s,
+                        """UPDATE runs SET articles_fetched=%s, tweets_posted=%s,
                            avg_inference_seconds=%s, total_inference_seconds=%s,
-                           total_cost_usd=%s, avg_quality_score=%s, status='{final_status}'
+                           total_cost_usd=%s, avg_quality_score=%s, status='done'
                            WHERE id=%s""",
                         (len(articles), len(tweet_ids), avg_inference, total_inference_time,
                          round(total_cost_usd, 6), round(avg_quality, 2), db_run_id)
                     )
 
-        logger.info(f"Done. Posted {len(tweet_ids)} tweets. Status: {final_status}")
+        logger.info(f"Done. Posted {len(tweet_ids)} tweets.")
 
 
 def consume_trigger(db_enabled: bool):

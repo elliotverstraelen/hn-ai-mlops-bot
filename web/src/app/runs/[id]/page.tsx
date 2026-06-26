@@ -67,6 +67,11 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
             </span>
           </h2>
           <StatusBadge status={run.status} />
+          {run.avg_quality_score != null && run.avg_quality_score > 0 && run.avg_quality_score < 5 && (
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
+              Low quality
+            </span>
+          )}
         </div>
       </div>
 

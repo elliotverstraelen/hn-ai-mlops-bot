@@ -46,12 +46,26 @@ def init_db():
             """)
 
 
-def fetch_hn_articles(n: int = MAX_ARTICLES) -> list[dict]:
-    ids = requests.get(HN_TOP_STORIES, timeout=10).json()[:n * 3]
+def get_recently_tweeted_urls(db_enabled: bool) -> set:
+    if not db_enabled:
+        return set()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT source_url FROM articles WHERE created_at > NOW() - INTERVAL '12 hours'"
+            )
+            return {row[0] for row in cur.fetchall()}
+
+
+def fetch_hn_articles(n: int = MAX_ARTICLES, skip_urls: set = None) -> list[dict]:
+    skip_urls = skip_urls or set()
+    ids = requests.get(HN_TOP_STORIES, timeout=10).json()[:n * 5]
     articles = []
     for story_id in ids:
         item = requests.get(HN_ITEM.format(story_id), timeout=10).json()
-        if item and item.get("type") == "story" and item.get("title") and item.get("url"):
+        if (item and item.get("type") == "story"
+                and item.get("title") and item.get("url")
+                and item["url"] not in skip_urls):
             articles.append({"title": item["title"], "url": item["url"]})
         if len(articles) >= n:
             break
@@ -122,7 +136,8 @@ def run():
                     db_run_id = cur.fetchone()[0]
 
         logger.info("Fetching HN articles...")
-        articles = fetch_hn_articles(MAX_ARTICLES)
+        skip_urls = get_recently_tweeted_urls(db_enabled)
+        articles = fetch_hn_articles(MAX_ARTICLES, skip_urls)
         mlflow.log_metric("articles_fetched", len(articles))
 
         tweet_ids = []

@@ -5,6 +5,14 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 function StatusBadge({ status }: { status: string }) {
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+        Preparing
+      </span>
+    );
+  }
   if (status === "running") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
@@ -124,7 +132,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                     {article.title}
                   </a>
                 </div>
-                {article.tweet_id && (
+                {article.tweet_id ? (
                   <a
                     href={`https://twitter.com/i/web/status/${article.tweet_id}`}
                     target="_blank"
@@ -133,6 +141,10 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                   >
                     View tweet →
                   </a>
+                ) : (
+                  <span className="shrink-0 bg-gray-700/50 border border-gray-700 text-gray-500 text-xs px-3 py-1 rounded-full">
+                    Not posted
+                  </span>
                 )}
               </div>
               <div>

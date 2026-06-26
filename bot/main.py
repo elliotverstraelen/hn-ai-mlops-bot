@@ -50,8 +50,12 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS trigger_requests (
                     id SERIAL PRIMARY KEY,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
-                    processed BOOLEAN DEFAULT FALSE
+                    processed BOOLEAN DEFAULT FALSE,
+                    run_id INT REFERENCES runs(id)
                 );
+                ALTER TABLE trigger_requests ADD COLUMN IF NOT EXISTS run_id INT REFERENCES runs(id);
+                UPDATE runs SET status = 'done'
+                  WHERE status = 'pending' AND started_at < NOW() - INTERVAL '10 minutes';
             """)
 
 
@@ -120,7 +124,7 @@ def get_twitter_client() -> tweepy.Client:
     )
 
 
-def run():
+def run(existing_run_id=None):
     os.environ.setdefault("GIT_PYTHON_REFRESH", "quiet")
     mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "/app/mlruns"))
     mlflow.set_experiment("hn-ai-bot")
@@ -141,11 +145,18 @@ def run():
         if db_enabled:
             with get_db() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        "INSERT INTO runs (mlflow_run_id, status) VALUES (%s, 'running') RETURNING id",
-                        (mlflow_run_id,)
-                    )
-                    db_run_id = cur.fetchone()[0]
+                    if existing_run_id:
+                        cur.execute(
+                            "UPDATE runs SET mlflow_run_id=%s, status='running' WHERE id=%s RETURNING id",
+                            (mlflow_run_id, existing_run_id)
+                        )
+                        db_run_id = existing_run_id
+                    else:
+                        cur.execute(
+                            "INSERT INTO runs (mlflow_run_id, status) VALUES (%s, 'running') RETURNING id",
+                            (mlflow_run_id,)
+                        )
+                        db_run_id = cur.fetchone()[0]
 
         logger.info("Fetching HN articles...")
         skip_urls = get_recently_tweeted_urls(db_enabled)
@@ -214,20 +225,22 @@ def run():
         logger.info(f"Done. Posted {len(tweet_ids)} tweets.")
 
 
-def consume_trigger(db_enabled: bool) -> bool:
+def consume_trigger(db_enabled: bool):
+    """Returns run_id (int) if a trigger is pending, None otherwise."""
     if not db_enabled:
-        return False
+        return None
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE trigger_requests SET processed=TRUE WHERE id = "
                     "(SELECT id FROM trigger_requests WHERE processed=FALSE ORDER BY created_at LIMIT 1) "
-                    "RETURNING id"
+                    "RETURNING run_id"
                 )
-                return cur.fetchone() is not None
+                row = cur.fetchone()
+                return row[0] if row else None
     except Exception:
-        return False
+        return None
 
 
 if __name__ == "__main__":
@@ -236,24 +249,21 @@ if __name__ == "__main__":
     interval = int(os.environ.get("RUN_INTERVAL_SECONDS", "21600"))
     db_enabled = "DATABASE_URL" in os.environ
     while True:
-        db_run_id_on_error = None
         try:
             run()
         except Exception as e:
             logger.error(f"Run failed: {e}")
-            if db_enabled and db_run_id_on_error:
-                try:
-                    with get_db() as conn:
-                        with conn.cursor() as cur:
-                            cur.execute("UPDATE runs SET status='failed' WHERE id=%s", (db_run_id_on_error,))
-                except Exception:
-                    pass
         logger.info(f"Sleeping {interval}s until next run...")
         elapsed = 0
         poll = 30
         while elapsed < interval:
             time.sleep(poll)
             elapsed += poll
-            if consume_trigger(db_enabled):
-                logger.info("Manual trigger received — running pipeline now.")
+            triggered_run_id = consume_trigger(db_enabled)
+            if triggered_run_id is not None:
+                logger.info(f"Manual trigger received (run_id={triggered_run_id}) — running pipeline now.")
+                try:
+                    run(existing_run_id=triggered_run_id)
+                except Exception as e:
+                    logger.error(f"Triggered run failed: {e}")
                 break

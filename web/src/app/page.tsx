@@ -18,6 +18,14 @@ function timeAgo(dateStr: string) {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+        Preparing
+      </span>
+    );
+  }
   if (status === "running") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
@@ -44,7 +52,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default async function HomePage() {
   const [stats, runs] = await Promise.all([getStats(), getRuns()]);
-  const hasRunning = runs.some((r) => r.status === "running");
+  const hasRunning = runs.some((r) => r.status === "running" || r.status === "pending");
 
   return (
     <div className="space-y-8">

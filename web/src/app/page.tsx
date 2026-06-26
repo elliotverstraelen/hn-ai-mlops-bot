@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getRuns, getStats } from "@/lib/db";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 function fmt(n: number, decimals = 2) {
   return n.toFixed(decimals);

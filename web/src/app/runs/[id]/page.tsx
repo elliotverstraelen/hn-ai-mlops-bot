@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getRun, getArticles } from "@/lib/db";
 import { notFound } from "next/navigation";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function RunPage({ params }: { params: { id: string } }) {
   const id = parseInt(params.id);

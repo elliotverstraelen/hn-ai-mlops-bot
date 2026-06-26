@@ -79,11 +79,17 @@ def summarize(title: str) -> str:
         "parameters": {"max_length": 60, "min_length": 15, "do_sample": False},
     }
     for attempt in range(3):
-        response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=30)
+        try:
+            response = requests.post(HF_API_URL, headers=headers, json=payload, timeout=90)
+        except requests.exceptions.Timeout:
+            wait = 20 * (attempt + 1)
+            logger.warning(f"HuggingFace request timed out (attempt {attempt + 1}/3), retrying in {wait}s...")
+            time.sleep(wait)
+            continue
         if response.status_code == 503:
             wait = response.json().get("estimated_time", 20)
             logger.info(f"Model loading on HuggingFace, waiting {wait:.0f}s...")
-            time.sleep(min(wait, 30))
+            time.sleep(min(wait, 60))
             continue
         response.raise_for_status()
         return response.json()[0]["summary_text"]

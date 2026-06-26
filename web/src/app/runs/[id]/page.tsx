@@ -150,21 +150,23 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           {articles.map((article) => (
             <div
               key={article.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2"
+              className="group bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1 flex-1 min-w-0">
                   <p className="text-xs text-gray-500 uppercase tracking-wider">Input</p>
+                  <p className="font-medium text-white truncate">{article.title}</p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2">
                   <a
                     href={article.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-medium text-white hover:text-blue-400 truncate block"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-3 py-1 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
                   >
-                    {article.title}
+                    Read article →
                   </a>
-                </div>
-                {article.tweet_id ? (
+                  {article.tweet_id ? (
                   <a
                     href={`https://twitter.com/i/web/status/${article.tweet_id}`}
                     target="_blank"

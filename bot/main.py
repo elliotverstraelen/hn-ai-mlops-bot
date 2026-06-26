@@ -8,7 +8,7 @@ import psycopg2
 from openai import OpenAI
 from psycopg2.extras import RealDictCursor
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", stream=__import__("sys").stdout)
 logger = logging.getLogger(__name__)
 
 HN_TOP_STORIES = "https://hacker-news.firebaseio.com/v0/topstories.json"

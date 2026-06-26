@@ -11,6 +11,8 @@ export interface Run {
   tweets_posted: number;
   avg_inference_seconds: number;
   total_inference_seconds: number;
+  total_cost_usd?: number;
+  avg_quality_score?: number;
 }
 
 export interface Article {
@@ -21,6 +23,7 @@ export interface Article {
   summary: string;
   tweet_id: string;
   created_at: string;
+  quality_score?: number;
 }
 
 function normalizeRun(row: Run): Run {

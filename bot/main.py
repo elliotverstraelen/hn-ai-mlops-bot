@@ -16,6 +16,9 @@ HN_ITEM = "https://hacker-news.firebaseio.com/v0/item/{}.json"
 MAX_ARTICLES = 5
 TWEET_MAX_CHARS = 280
 
+GPT4O_MINI_INPUT_COST  = 0.150 / 1_000_000   # $ per token
+GPT4O_MINI_OUTPUT_COST = 0.600 / 1_000_000
+
 
 def get_db():
     return psycopg2.connect(os.environ["DATABASE_URL"])
@@ -56,6 +59,9 @@ def init_db():
                 ALTER TABLE trigger_requests ADD COLUMN IF NOT EXISTS run_id INT REFERENCES runs(id);
                 UPDATE runs SET status = 'done'
                   WHERE status = 'pending' AND started_at < NOW() - INTERVAL '10 minutes';
+                ALTER TABLE runs ADD COLUMN IF NOT EXISTS total_cost_usd FLOAT DEFAULT 0;
+                ALTER TABLE runs ADD COLUMN IF NOT EXISTS avg_quality_score FLOAT DEFAULT 0;
+                ALTER TABLE articles ADD COLUMN IF NOT EXISTS quality_score FLOAT;
             """)
 
 
@@ -85,7 +91,7 @@ def fetch_hn_articles(n: int = MAX_ARTICLES, skip_urls: set = None) -> list[dict
     return articles
 
 
-def summarize(title: str) -> str:
+def summarize(title: str) -> tuple[str, int, int]:
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -103,7 +109,36 @@ def summarize(title: str) -> str:
         max_tokens=80,
         temperature=0.7,
     )
-    return completion.choices[0].message.content.strip()
+    return (
+        completion.choices[0].message.content.strip(),
+        completion.usage.prompt_tokens,
+        completion.usage.completion_tokens,
+    )
+
+
+def rate_tweet(tweet_text: str) -> tuple[float, int, int]:
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Rate this tweet for a developer audience 1-10. "
+                    "Consider clarity, engagement, and informativeness. "
+                    "Reply with only the number."
+                ),
+            },
+            {"role": "user", "content": tweet_text},
+        ],
+        max_tokens=3,
+        temperature=0,
+    )
+    try:
+        score = float(completion.choices[0].message.content.strip())
+    except ValueError:
+        score = 5.0
+    return score, completion.usage.prompt_tokens, completion.usage.completion_tokens
 
 
 def format_tweet(summary: str, url: str) -> str:
@@ -164,12 +199,19 @@ def run(existing_run_id=None):
 
         tweet_ids = []
         total_inference_time = 0.0
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        total_cost_usd = 0.0
+        quality_scores = []
         articles_processed = 0
 
         for article in articles:
             logger.info(f"Summarizing: {article['title']}")
             t0 = time.time()
-            summary = summarize(article["title"])
+            summary, p_tok, c_tok = summarize(article["title"])
+            total_prompt_tokens += p_tok
+            total_completion_tokens += c_tok
+            total_cost_usd += p_tok * GPT4O_MINI_INPUT_COST + c_tok * GPT4O_MINI_OUTPUT_COST
             elapsed = time.time() - t0
             total_inference_time += elapsed
             articles_processed += 1
@@ -178,11 +220,16 @@ def run(existing_run_id=None):
             logger.info(f"Posting tweet ({len(tweet_text)} chars): {tweet_text[:60]}...")
 
             tweet_id = None
+            q_score = None
             try:
                 response = twitter.create_tweet(text=tweet_text)
                 tweet_id = str(response.data["id"])
                 tweet_ids.append(tweet_id)
                 logger.info(f"Posted tweet {tweet_id}")
+                q_score, qp_tok, qc_tok = rate_tweet(tweet_text)
+                quality_scores.append(q_score)
+                total_cost_usd += qp_tok * GPT4O_MINI_INPUT_COST + qc_tok * GPT4O_MINI_OUTPUT_COST
+                logger.info(f"Quality score: {q_score}/10")
             except Exception as e:
                 logger.warning(f"Tweet not posted ({type(e).__name__}): {e}")
 
@@ -190,9 +237,9 @@ def run(existing_run_id=None):
                 with get_db() as conn:
                     with conn.cursor() as cur:
                         cur.execute(
-                            """INSERT INTO articles (run_id, title, source_url, summary, tweet_id)
-                               VALUES (%s, %s, %s, %s, %s)""",
-                            (db_run_id, article["title"], article["url"], summary, tweet_id)
+                            """INSERT INTO articles (run_id, title, source_url, summary, tweet_id, quality_score)
+                               VALUES (%s, %s, %s, %s, %s, %s)""",
+                            (db_run_id, article["title"], article["url"], summary, tweet_id, q_score)
                         )
                         cur.execute(
                             """UPDATE runs SET articles_fetched=%s, tweets_posted=%s WHERE id=%s""",
@@ -200,19 +247,27 @@ def run(existing_run_id=None):
                         )
 
         avg_inference = total_inference_time / max(articles_processed, 1)
+        avg_quality = sum(quality_scores) / max(len(quality_scores), 1)
         mlflow.log_metric("articles_fetched", articles_processed)
         mlflow.log_metric("tweets_posted", len(tweet_ids))
         mlflow.log_metric("avg_inference_seconds", avg_inference)
         mlflow.log_metric("total_inference_seconds", total_inference_time)
+        mlflow.log_metric("total_prompt_tokens", total_prompt_tokens)
+        mlflow.log_metric("total_completion_tokens", total_completion_tokens)
+        mlflow.log_metric("total_cost_usd", round(total_cost_usd, 6))
+        mlflow.log_metric("avg_quality_score", round(avg_quality, 2))
+        logger.info(f"Cost: ${total_cost_usd:.4f} | Avg quality: {avg_quality:.1f}/10")
 
         if db_enabled and db_run_id:
             with get_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        """UPDATE runs SET status='done', articles_fetched=%s, tweets_posted=%s,
-                           avg_inference_seconds=%s, total_inference_seconds=%s
+                        """UPDATE runs SET articles_fetched=%s, tweets_posted=%s,
+                           avg_inference_seconds=%s, total_inference_seconds=%s,
+                           total_cost_usd=%s, avg_quality_score=%s, status='done'
                            WHERE id=%s""",
-                        (articles_processed, len(tweet_ids), avg_inference, total_inference_time, db_run_id)
+                        (len(articles), len(tweet_ids), avg_inference, total_inference_time,
+                         round(total_cost_usd, 6), round(avg_quality, 2), db_run_id)
                     )
 
         logger.info(f"Done. Posted {len(tweet_ids)} tweets.")

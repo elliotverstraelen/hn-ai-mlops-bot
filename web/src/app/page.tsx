@@ -71,7 +71,7 @@ export default async function HomePage() {
           { label: "Total Runs", value: stats.totalRuns },
           { label: "Tweets Posted", value: stats.totalTweets },
           { label: "Articles Processed", value: stats.totalArticles },
-          { label: "Avg Inference", value: `${fmt(stats.avgInference)}s` },
+          { label: "Avg Inference", value: stats.avgInference > 0 ? `${fmt(stats.avgInference)}s` : "N/A" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider">{s.label}</p>
@@ -116,7 +116,7 @@ export default async function HomePage() {
                     <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
                     <td className="px-4 py-3">{run.articles_fetched}</td>
                     <td className="px-4 py-3">{run.tweets_posted}</td>
-                    <td className="px-4 py-3 text-gray-300">{fmt(run.avg_inference_seconds)}s</td>
+                    <td className="px-4 py-3 text-gray-300">{run.avg_inference_seconds > 0 ? `${fmt(run.avg_inference_seconds)}s` : "N/A"}</td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs text-gray-500">
                         {run.mlflow_run_id?.slice(0, 8)}…
@@ -139,7 +139,7 @@ export default async function HomePage() {
       </div>
 
       <p className="text-gray-600 text-xs text-center">
-        Model: facebook/bart-large-cnn via HuggingFace Inference API
+        Model: OpenAI GPT-4o-mini · Experiment tracking: MLflow · Deploy: Railway
       </p>
     </div>
   );

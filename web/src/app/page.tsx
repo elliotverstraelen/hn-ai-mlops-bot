@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getRuns, getStats } from "@/lib/db";
+import RunButton from "./RunButton";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,10 @@ export default async function HomePage() {
 
       {/* Runs table */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">Bot Runs</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Bot Runs</h2>
+          <RunButton />
+        </div>
         {runs.length === 0 ? (
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-500">
             No runs yet — the bot posts every 6 hours.

@@ -6,6 +6,7 @@ export interface Run {
   id: number;
   mlflow_run_id: string;
   started_at: string;
+  status: string;
   articles_fetched: number;
   tweets_posted: number;
   avg_inference_seconds: number;
@@ -22,11 +23,22 @@ export interface Article {
   created_at: string;
 }
 
+function normalizeRun(row: Run): Run {
+  return {
+    ...row,
+    status: row.status ?? "done",
+    avg_inference_seconds: row.avg_inference_seconds ?? 0,
+    total_inference_seconds: row.total_inference_seconds ?? 0,
+    articles_fetched: row.articles_fetched ?? 0,
+    tweets_posted: row.tweets_posted ?? 0,
+  };
+}
+
 export async function getRuns(): Promise<Run[]> {
   const { rows } = await pool.query<Run>(
     "SELECT * FROM runs ORDER BY started_at DESC LIMIT 50"
   );
-  return rows;
+  return rows.map(normalizeRun);
 }
 
 export async function getRun(id: number): Promise<Run | null> {
@@ -34,7 +46,7 @@ export async function getRun(id: number): Promise<Run | null> {
     "SELECT * FROM runs WHERE id = $1",
     [id]
   );
-  return rows[0] ?? null;
+  return rows[0] ? normalizeRun(rows[0]) : null;
 }
 
 export async function getArticles(runId: number): Promise<Article[]> {

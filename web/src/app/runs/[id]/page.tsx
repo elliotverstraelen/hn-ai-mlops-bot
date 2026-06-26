@@ -4,8 +4,9 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function RunPage({ params }: { params: { id: string } }) {
-  const id = parseInt(params.id);
+export default async function RunPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: idStr } = await params;
+  const id = parseInt(idStr);
   const [run, articles] = await Promise.all([getRun(id), getArticles(id)]);
 
   if (!run) notFound();

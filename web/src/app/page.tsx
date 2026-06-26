@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRuns, getStats } from "@/lib/db";
 import RunButton from "./RunButton";
+import AutoRefresh from "./AutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,39 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function StatusBadge({ status }: { status: string }) {
+  if (status === "running") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+        Running
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+        Failed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+      Done
+    </span>
+  );
+}
+
 export default async function HomePage() {
   const [stats, runs] = await Promise.all([getStats(), getRuns()]);
+  const hasRunning = runs.some((r) => r.status === "running");
 
   return (
     <div className="space-y-8">
+      <AutoRefresh hasRunning={hasRunning} />
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -52,6 +81,7 @@ export default async function HomePage() {
               <thead>
                 <tr className="border-b border-gray-800 text-gray-400 text-xs uppercase">
                   <th className="text-left px-4 py-3">Time</th>
+                  <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Articles</th>
                   <th className="text-left px-4 py-3">Tweets</th>
                   <th className="text-left px-4 py-3">Avg inference</th>
@@ -68,6 +98,7 @@ export default async function HomePage() {
                     }`}
                   >
                     <td className="px-4 py-3 text-gray-300">{timeAgo(run.started_at)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
                     <td className="px-4 py-3">{run.articles_fetched}</td>
                     <td className="px-4 py-3">{run.tweets_posted}</td>
                     <td className="px-4 py-3 text-gray-300">{fmt(run.avg_inference_seconds)}s</td>
@@ -77,12 +108,14 @@ export default async function HomePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/runs/${run.id}`}
-                        className="text-blue-400 hover:text-blue-300 text-xs"
-                      >
-                        View →
-                      </Link>
+                      {run.status !== "running" && (
+                        <Link
+                          href={`/runs/${run.id}`}
+                          className="text-blue-400 hover:text-blue-300 text-xs"
+                        >
+                          View →
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -93,7 +126,7 @@ export default async function HomePage() {
       </div>
 
       <p className="text-gray-600 text-xs text-center">
-        Refreshes every 60 seconds · Model: facebook/bart-large-cnn via HuggingFace Inference API
+        Model: facebook/bart-large-cnn via HuggingFace Inference API
       </p>
     </div>
   );

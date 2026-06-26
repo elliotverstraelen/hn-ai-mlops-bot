@@ -29,11 +29,13 @@ def init_db():
                     id SERIAL PRIMARY KEY,
                     mlflow_run_id TEXT,
                     started_at TIMESTAMPTZ DEFAULT NOW(),
+                    status TEXT DEFAULT 'running',
                     articles_fetched INT DEFAULT 0,
                     tweets_posted INT DEFAULT 0,
                     avg_inference_seconds FLOAT DEFAULT 0,
                     total_inference_seconds FLOAT DEFAULT 0
                 );
+                ALTER TABLE runs ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'running';
                 CREATE TABLE IF NOT EXISTS articles (
                     id SERIAL PRIMARY KEY,
                     run_id INT REFERENCES runs(id) ON DELETE CASCADE,
@@ -141,7 +143,7 @@ def run():
             with get_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO runs (mlflow_run_id) VALUES (%s) RETURNING id",
+                        "INSERT INTO runs (mlflow_run_id, status) VALUES (%s, 'running') RETURNING id",
                         (mlflow_run_id,)
                     )
                     db_run_id = cur.fetchone()[0]
@@ -204,7 +206,7 @@ def run():
             with get_db() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        """UPDATE runs SET articles_fetched=%s, tweets_posted=%s,
+                        """UPDATE runs SET status='done', articles_fetched=%s, tweets_posted=%s,
                            avg_inference_seconds=%s, total_inference_seconds=%s
                            WHERE id=%s""",
                         (len(articles), len(tweet_ids), avg_inference, total_inference_time, db_run_id)
@@ -235,10 +237,18 @@ if __name__ == "__main__":
     interval = int(os.environ.get("RUN_INTERVAL_SECONDS", "21600"))
     db_enabled = "DATABASE_URL" in os.environ
     while True:
+        db_run_id_on_error = None
         try:
             run()
         except Exception as e:
             logger.error(f"Run failed: {e}")
+            if db_enabled and db_run_id_on_error:
+                try:
+                    with get_db() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute("UPDATE runs SET status='failed' WHERE id=%s", (db_run_id_on_error,))
+                except Exception:
+                    pass
         logger.info(f"Sleeping {interval}s until next run...")
         elapsed = 0
         poll = 30

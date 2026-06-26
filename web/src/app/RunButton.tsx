@@ -1,18 +1,25 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RunButton() {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const router = useRouter();
 
   async function trigger() {
     setState("loading");
     try {
       const res = await fetch("/api/trigger", { method: "POST" });
-      setState(res.ok ? "done" : "error");
+      if (res.ok) {
+        setState("done");
+        router.refresh();
+      } else {
+        setState("error");
+      }
     } catch {
       setState("error");
     }
-    setTimeout(() => setState("idle"), 4000);
+    setTimeout(() => setState("idle"), 5000);
   }
 
   const label =

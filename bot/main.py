@@ -148,13 +148,15 @@ def run():
 
         logger.info("Fetching HN articles...")
         skip_urls = get_recently_tweeted_urls(db_enabled)
-        articles = fetch_hn_articles(MAX_ARTICLES, skip_urls)
+        articles = fetch_hn_articles(MAX_ARTICLES * 4, skip_urls)
         mlflow.log_metric("articles_fetched", len(articles))
 
         tweet_ids = []
         total_inference_time = 0.0
 
         for article in articles:
+            if len(tweet_ids) >= MAX_ARTICLES:
+                break
             logger.info(f"Summarizing: {article['title']}")
             t0 = time.time()
             summary = summarize(article["title"])
@@ -168,6 +170,15 @@ def run():
                 response = twitter.create_tweet(text=tweet_text)
             except tweepy.errors.Forbidden as e:
                 logger.warning(f"Skipping tweet (forbidden — likely duplicate): {e}")
+                if db_enabled and db_run_id:
+                    with get_db() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                """INSERT INTO articles (run_id, title, source_url, summary, tweet_id)
+                                   VALUES (%s, %s, %s, %s, %s)
+                                   ON CONFLICT DO NOTHING""",
+                                (db_run_id, article["title"], article["url"], summary, None)
+                            )
                 continue
             tweet_id = str(response.data["id"])
             tweet_ids.append(tweet_id)

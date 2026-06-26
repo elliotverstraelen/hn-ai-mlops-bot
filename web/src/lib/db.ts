@@ -39,6 +39,11 @@ function normalizeRun(row: Run): Run {
 }
 
 export async function getRuns(): Promise<Run[]> {
+  await pool.query(`
+    UPDATE runs SET status = 'done'
+    WHERE status IN ('running', 'pending')
+      AND started_at < NOW() - INTERVAL '5 minutes'
+  `);
   const { rows } = await pool.query<Run>(
     "SELECT * FROM runs ORDER BY started_at DESC LIMIT 50"
   );

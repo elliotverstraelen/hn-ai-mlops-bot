@@ -69,6 +69,22 @@ export default function TweetCarousel({ articles }: { articles: Article[] }) {
                 )}
               </div>
 
+              {/* Open on X button */}
+              {posted && (
+                <a
+                  href={`https://twitter.com/i/web/status/${article.tweet_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center justify-center gap-2 w-full py-2 rounded-full bg-white text-black text-sm font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.261 5.632 5.903-5.632zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  View on X
+                </a>
+              )}
+
               {/* Action bar */}
               <div className="flex items-center justify-around text-gray-600">
                 <button className="flex items-center gap-1.5 hover:text-sky-400 transition-colors" onClick={e => e.stopPropagation()}>

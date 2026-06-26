@@ -178,23 +178,14 @@ def run(existing_run_id=None):
             tweet_text = format_tweet(summary, article["url"])
             logger.info(f"Posting tweet ({len(tweet_text)} chars): {tweet_text[:60]}...")
 
+            tweet_id = None
             try:
                 response = twitter.create_tweet(text=tweet_text)
-            except tweepy.errors.Forbidden as e:
-                logger.warning(f"Skipping tweet (forbidden — likely duplicate): {e}")
-                if db_enabled and db_run_id:
-                    with get_db() as conn:
-                        with conn.cursor() as cur:
-                            cur.execute(
-                                """INSERT INTO articles (run_id, title, source_url, summary, tweet_id)
-                                   VALUES (%s, %s, %s, %s, %s)
-                                   ON CONFLICT DO NOTHING""",
-                                (db_run_id, article["title"], article["url"], summary, None)
-                            )
-                continue
-            tweet_id = str(response.data["id"])
-            tweet_ids.append(tweet_id)
-            logger.info(f"Posted tweet {tweet_id}")
+                tweet_id = str(response.data["id"])
+                tweet_ids.append(tweet_id)
+                logger.info(f"Posted tweet {tweet_id}")
+            except Exception as e:
+                logger.warning(f"Tweet not posted ({type(e).__name__}): {e}")
 
             if db_enabled and db_run_id:
                 with get_db() as conn:
@@ -207,7 +198,9 @@ def run(existing_run_id=None):
 
             time.sleep(2)
 
-        avg_inference = total_inference_time / max(len(articles), 1)
+        articles_processed = min(len(articles), MAX_ARTICLES)
+        avg_inference = total_inference_time / max(articles_processed, 1)
+        mlflow.log_metric("articles_fetched", articles_processed)
         mlflow.log_metric("tweets_posted", len(tweet_ids))
         mlflow.log_metric("avg_inference_seconds", avg_inference)
         mlflow.log_metric("total_inference_seconds", total_inference_time)
@@ -219,7 +212,7 @@ def run(existing_run_id=None):
                         """UPDATE runs SET status='done', articles_fetched=%s, tweets_posted=%s,
                            avg_inference_seconds=%s, total_inference_seconds=%s
                            WHERE id=%s""",
-                        (len(articles), len(tweet_ids), avg_inference, total_inference_time, db_run_id)
+                        (articles_processed, len(tweet_ids), avg_inference, total_inference_time, db_run_id)
                     )
 
         logger.info(f"Done. Posted {len(tweet_ids)} tweets.")

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getRun, getArticles } from "@/lib/db";
 import { notFound } from "next/navigation";
 import TweetCarousel from "./TweetCarousel";
-import PostButton from "./PostButton";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +52,9 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
   if (!run) notFound();
 
+  const validScores = articles.flatMap(a => a.quality_score != null && a.quality_score > 0 ? [a.quality_score] : []);
+  const avgQuality = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -67,7 +69,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
             </span>
           </h2>
           <StatusBadge status={run.status} />
-          {run.avg_quality_score != null && run.avg_quality_score > 0 && run.avg_quality_score < 5 && (
+          {avgQuality != null && avgQuality < 5 && (
             <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-orange-500/15 text-orange-400 border border-orange-500/30">
               Low quality
             </span>
@@ -81,7 +83,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           { label: "Generated", value: run.articles_fetched },
           { label: "Avg inference", value: run.avg_inference_seconds > 0 ? `${run.avg_inference_seconds.toFixed(2)}s` : "N/A" },
           { label: "Run cost", value: run.total_cost_usd && run.total_cost_usd > 0 ? `$${run.total_cost_usd.toFixed(4)}` : "N/A" },
-          { label: "Avg quality", value: run.avg_quality_score && run.avg_quality_score > 0 ? `${run.avg_quality_score.toFixed(1)}/10` : "N/A" },
+          { label: "Avg quality", value: avgQuality != null ? `${avgQuality.toFixed(1)}/10` : "N/A" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-gray-400 text-xs uppercase tracking-wider">{s.label}</p>
@@ -121,18 +123,16 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                   >
                     Read article →
                   </a>
-                  {article.tweet_id ? (
-                  <a
-                    href={`https://twitter.com/i/web/status/${article.tweet_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:text-sky-300 text-xs px-3 py-1 rounded-full"
-                  >
-                    View tweet →
-                  </a>
-                ) : (
-                  <PostButton articleId={article.id} />
-                )}
+                  {article.tweet_id && (
+                    <a
+                      href={`https://twitter.com/i/web/status/${article.tweet_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:text-sky-300 text-xs px-3 py-1 rounded-full"
+                    >
+                      View tweet →
+                    </a>
+                  )}
                 </div>
               </div>
               <div>

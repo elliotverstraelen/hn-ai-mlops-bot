@@ -97,7 +97,7 @@ export async function getStats(): Promise<{
       COALESCE(SUM(articles_fetched), 0)::int AS "totalArticles",
       COALESCE(AVG(NULLIF(avg_inference_seconds, 0)), 0)::float AS "avgInference",
       COALESCE(SUM(total_cost_usd), 0)::float AS "totalCostUsd",
-      COALESCE(AVG(NULLIF(avg_quality_score, 0)), 0)::float AS "avgQualityScore"
+      COALESCE((SELECT AVG(quality_score) FROM articles WHERE quality_score IS NOT NULL AND quality_score > 0), 0)::float AS "avgQualityScore"
     FROM runs
   `);
   return rows[0];

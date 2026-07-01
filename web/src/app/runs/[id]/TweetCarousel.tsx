@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import type { Article } from "@/lib/db";
+import PostButton from "./PostButton";
 
 export default function TweetCarousel({ articles }: { articles: Article[] }) {
   const [expanded, setExpanded] = useState<number | null>(null);
-  const items = articles.slice(0, 3);
+  const items = articles;
 
   return (
     <div>
@@ -63,8 +64,8 @@ export default function TweetCarousel({ articles }: { articles: Article[] }) {
                     View on X →
                   </a>
                 ) : (
-                  <span className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 rounded-full">
-                    Not posted
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <PostButton articleId={article.id} />
                   </span>
                 )}
               </div>

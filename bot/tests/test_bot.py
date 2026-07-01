@@ -22,7 +22,7 @@ def test_format_tweet_truncates_long_summary():
     url = "https://example.com"
     result = format_tweet(long_summary, url)
     assert len(result) <= 280
-    assert result.endswith(f"\n{url}")
+    assert result.endswith(f"\n\nRead more → {url}")
     assert "..." in result
 
 
@@ -30,7 +30,7 @@ def test_format_tweet_short_summary_not_truncated():
     summary = "Short summary"
     url = "https://example.com"
     result = format_tweet(summary, url)
-    assert result == "Short summary\nhttps://example.com"
+    assert result == "Short summary\n\nRead more → https://example.com"
 
 
 # ── summarize ─────────────────────────────────────────────────

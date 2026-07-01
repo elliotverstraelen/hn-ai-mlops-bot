@@ -12,7 +12,7 @@ export async function POST(
   if (!article) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (article.tweet_id) return NextResponse.json({ error: "Already posted" }, { status: 409 });
 
-  const suffix = `\n${article.source_url}`;
+  const suffix = `\n\nRead more → ${article.source_url}`;
   let summary = article.summary;
   const max = 280 - suffix.length - 5;
   if (summary.length > max) summary = summary.slice(0, max).trimEnd() + "...";
@@ -26,11 +26,14 @@ export async function POST(
   });
 
   try {
-    const { data } = await client.v2.tweet(tweetText);
+    const { data } = await client.readWrite.v2.tweet(tweetText);
     await setArticleTweetId(article.id, data.id);
     return NextResponse.json({ tweet_id: data.id });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
+    let msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("402")) msg = "Twitter API access error (402) — your API plan may not support tweet creation. Check developer.twitter.com.";
+    if (msg.includes("403")) msg = "Duplicate tweet — this content was already posted recently.";
+    if (msg.includes("401")) msg = "Twitter credentials invalid — check API keys in Railway settings.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

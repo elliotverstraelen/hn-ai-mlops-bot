@@ -142,7 +142,7 @@ def rate_tweet(tweet_text: str) -> tuple[float, int, int]:
 
 
 def format_tweet(summary: str, url: str) -> str:
-    suffix = f"\n{url}"
+    suffix = f"\n\nRead more → {url}"
     max_summary = TWEET_MAX_CHARS - len(suffix) - 5
     if len(summary) > max_summary:
         summary = summary[:max_summary].rstrip() + "..."
@@ -225,19 +225,18 @@ def run(existing_run_id=None):
             articles_processed += 1
 
             tweet_text = format_tweet(summary, article["url"])
-            logger.info(f"Posting tweet ({len(tweet_text)} chars): {tweet_text[:60]}...")
+
+            q_score, qp_tok, qc_tok = rate_tweet(tweet_text)
+            quality_scores.append(q_score)
+            total_cost_usd += qp_tok * GPT4O_MINI_INPUT_COST + qc_tok * GPT4O_MINI_OUTPUT_COST
+            logger.info(f"Quality score: {q_score}/10 ({len(tweet_text)} chars)")
 
             tweet_id = None
-            q_score = None
             try:
                 response = twitter.create_tweet(text=tweet_text)
                 tweet_id = str(response.data["id"])
                 tweet_ids.append(tweet_id)
                 logger.info(f"Posted tweet {tweet_id}")
-                q_score, qp_tok, qc_tok = rate_tweet(tweet_text)
-                quality_scores.append(q_score)
-                total_cost_usd += qp_tok * GPT4O_MINI_INPUT_COST + qc_tok * GPT4O_MINI_OUTPUT_COST
-                logger.info(f"Quality score: {q_score}/10")
             except Exception as e:
                 logger.warning(f"Tweet not posted ({type(e).__name__}): {e}")
 
